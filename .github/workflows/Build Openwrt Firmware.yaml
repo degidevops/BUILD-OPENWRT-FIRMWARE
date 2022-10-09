@@ -1,0 +1,45 @@
+name: Build OPENWRT FIRMWARE
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'     
+        required: false
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout kernel source
+      uses: actions/checkout@v3
+      with:
+        repository: openwrt/openwrt
+        ref: openwrt-22.03
+        fetch-depth: 1
+
+    - name: Setup Env
+      run: |
+        sudo apt update
+        sudo apt-get install -y build-essential gawk gcc-multilib flex git gettext libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev clang llvm lld 
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+ 
+    - name: Setup Debug
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+    
+    - name: Build
+      working-directory: kernel
+      run: |
+        make -j$(nproc --all)
+
+    - name: Upload File
+      uses: actions/upload-artifact@v3
+      with:
+        name: FIRMWARE
+        path: |
+          packer/MSecureKernel-unsigned.zip
+          
